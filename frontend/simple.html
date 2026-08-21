@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Chart Test</title>
+<style>
+body{background:#0a0e17;color:#fff;font-family:monospace;padding:50px}
+canvas{max-width:400px;max-height:300px}
+</style>
+</head>
+<body>
+<h2>Chart Test</h2>
+<canvas id="c" width="400" height="300"></canvas>
+
+<script src="chart.umd.js"></script>
+<script>
+alert('Chart.js loaded: ' + typeof Chart);
+if (typeof Chart !== 'undefined') {
+    new Chart(document.getElementById('c'), {
+        type: 'bar',
+        data: {labels: ['A','B','C'], datasets: [{data: [1,2,3], backgroundColor: ['red','green','blue']}]}
+    });
+}
+</script>
+</body>
+</html>

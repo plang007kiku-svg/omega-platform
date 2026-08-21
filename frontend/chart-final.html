@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Chart Final Test</title>
+<style>
+body{background:#0a0e17;color:#fff;font-family:monospace;padding:50px}
+.chart-box{width:400px;height:300px;position:relative}
+</style>
+</head>
+<body>
+<h2>OMEGA Analytics</h2>
+<div class="chart-box"><canvas id="chart1"></canvas></div>
+
+<script src="chart.umd.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('chart1');
+    if (!canvas) { console.error('Canvas not found'); return; }
+    
+    try {
+        const chart = new Chart(canvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['IOC (782K)', 'APT (13)', 'Zero-Day (5)', 'Blocked (6)'],
+                datasets: [{
+                    data: [782207, 13, 5, 6],
+                    backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444', '#10b981']
+                }]
+            }
+        });
+        console.log('Chart created successfully');
+    } catch(e) {
+        console.error('Chart error:', e.message);
+    }
+});
+</script>
+</body>
+</html>
