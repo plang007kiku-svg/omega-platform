@@ -2,20 +2,30 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>OMEGA Threat Intelligence Platform</title>
+<title>OMEGA Threat Intelligence Platform - NCSA/CSA OPSEC</title>
 <style>
 body{background:#0a0e17;color:#fff;font-family:monospace;padding:20px}
-.topbar{display:flex;justify-content:space-between;background:#020617;padding:15px 25px;border-bottom:1px solid #1e293b;margin-bottom:20px}
+.topbar{display:flex;justify-content:space-between;align-items:center;background:#020617;padding:15px 25px;border-bottom:1px solid #1e293b;margin-bottom:20px;flex-wrap:wrap;gap:10px}
 .live-dot{width:10px;height:10px;background:#10b981;border-radius:50%;display:inline-block;animation:blink 1s infinite}
 @keyframes blink{50%{opacity:0.3}}
+.opsec-badge{background:#d4af37;color:#000;padding:4px 12px;border-radius:20px;font-weight:bold;font-size:11px}
+.tlp-badge{background:#f39c12;color:#000;padding:4px 12px;border-radius:20px;font-weight:bold;font-size:11px}
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px}
 .card{background:#151c2c;border:1px solid #1e293b;border-radius:12px;padding:20px;text-align:center}
 .value{font-size:2em;font-weight:bold;color:#3b82f6}
 .label{color:#94a3b8;font-size:11px;margin-top:5px}
 .chart-box{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
-.chart-card{background:#151c2c;border:1px solid #1e293b;border-radius:12px;padding:20px;height:350px}
+.chart-card{background:#151c2c;border:1px solid #1e293b;border-radius:12px;padding:20px;height:400px}
 .chart-card h3{color:#3b82f6;margin-bottom:15px;font-size:14px}
-canvas{width:100%!important;height:280px!important}
+canvas{width:100%!important;height:300px!important}
+.apt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;margin-bottom:20px}
+.apt-card{background:#151c2c;border:1px solid #1e293b;border-radius:12px;padding:15px}
+.apt-card h4{color:#f59e0b;margin-bottom:10px}
+.apt-card .ttp{color:#10b981;font-size:11px}
+.apt-card .sector{color:#94a3b8;font-size:11px}
+.confidence-high{color:#ef4444;font-weight:bold}
+.confidence-medium{color:#f59e0b;font-weight:bold}
+.confidence-low{color:#94a3b8;font-weight:bold}
 .terminal-box{background:#020617;border:1px solid #3b82f6;border-radius:12px;padding:15px;margin-top:20px;height:200px;overflow:hidden;position:relative}
 .terminal-box h3{color:#3b82f6;font-size:14px;margin-bottom:10px}
 .terminal-scroll{height:150px;overflow-y:auto;font-size:12px}
@@ -29,29 +39,44 @@ canvas{width:100%!important;height:280px!important}
 <div class="topbar">
 <div><span class="live-dot"></span> <strong>OMEGA THREAT INTELLIGENCE</strong></div>
 <div style="color:#94a3b8" id="clock"></div>
+<div><span class="opsec-badge">OPSEC MODE</span> <span class="tlp-badge">TLP: AMBER</span></div>
 <div style="color:#10b981">● SYSTEM ONLINE</div>
 </div>
 
 <div class="stats-grid">
-<div class="card"><div class="value">782K</div><div class="label">TOTAL IOC</div></div>
+<div class="card"><div class="value">742K</div><div class="label">SANITIZED IOC</div></div>
 <div class="card"><div class="value">13</div><div class="label">APT GROUPS</div></div>
 <div class="card"><div class="value">5</div><div class="label">ZERO-DAYS</div></div>
-<div class="card"><div class="value">6</div><div class="label">BLOCKED IPs</div></div>
+<div class="card"><div class="value">6</div><div class="label">AUTO-BANS</div></div>
 </div>
+
+<!-- APT Groups with MITRE ATT&CK -->
+<div class="apt-grid" id="aptGrid"></div>
 
 <div class="chart-box">
 <div class="chart-card">
-<h3>📊 IOC DISTRIBUTION</h3>
+<h3>📊 IOC DISTRIBUTION (CONFIDENCE)</h3>
 <canvas id="chart1"></canvas>
 </div>
 <div class="chart-card">
-<h3>🎯 C2 TRACKING</h3>
+<h3>🎯 C2 INFRASTRUCTURE BY ASN</h3>
 <canvas id="chart2"></canvas>
 </div>
 </div>
 
+<div class="chart-box">
+<div class="chart-card">
+<h3>🔴 MALWARE FAMILY DISTRIBUTION</h3>
+<canvas id="chart3"></canvas>
+</div>
+<div class="chart-card">
+<h3>🔵 C2 STATUS & PROTOCOLS</h3>
+<canvas id="chart4"></canvas>
+</div>
+</div>
+
 <div class="terminal-box">
-<h3>📡 REAL-TIME ENGINE LOG</h3>
+<h3>📡 REAL-TIME ENGINE LOG (SANITIZED)</h3>
 <div class="terminal-scroll" id="terminal">
 <div class="log">$ OMEGA Platform ready <span class="blink-cursor">█</span></div>
 </div>
@@ -59,115 +84,136 @@ canvas{width:100%!important;height:280px!important}
 
 <script src="chart.umd.js"></script>
 <script>
+// ==================== OPSEC REDACTION ====================
+const OPSEC = {
+  mode: 'mask',
+  salt: 'OMEGA-115.9-KH-SYNC',
+  
+  maskIP(ip) {
+    if (!ip) return 'N/A';
+    const parts = ip.split('.');
+    if (parts.length === 4) return `${parts[0]}.${parts[1]}.x.x`;
+    return '[REDACTED]';
+  },
+  
+  async hashIndicator(value, type = 'IP') {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(`${this.salt}:${type}:${value}`);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return `${type}-HASH-${hash.slice(0, 8).toUpperCase()}`;
+  },
+  
+  sanitizeLog(raw) {
+    return raw.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, ip => this.maskIP(ip));
+  }
+};
+
+// ==================== DATA ====================
+const APT_DATA = [
+  { alias: "APT-GROUP-ALPHA", ttps: ["T1059", "T1566"], sector: "Government", region: "TH", confidence: "HIGH" },
+  { alias: "APT-GROUP-BETA", ttps: ["T1190", "T1133"], sector: "Finance", region: "TH", confidence: "HIGH" },
+  { alias: "APT-GROUP-GAMMA", ttps: ["T1566", "T1204"], sector: "Critical Infrastructure", region: "ASEAN", confidence: "MEDIUM" },
+  { alias: "APT-GROUP-DELTA", ttps: ["T1027", "T1140"], sector: "Telecom", region: "APAC", confidence: "MEDIUM" },
+  { alias: "APT-GROUP-EPSILON", ttps: ["T1071", "T1573"], sector: "Energy", region: "Global", confidence: "LOW" },
+];
+
+const C2_DATA = [
+  { alias: "C2-NODE-001", asn: "AS-QUADRA-USA", geo: "DE", status: "TAKEDOWN", protocol: "HTTPS", ja3: "JA3-8F92A1" },
+  { alias: "C2-NODE-002", asn: "AS-AMAZON-01", geo: "US", status: "DORMANT", protocol: "DNS", ja4: "JA4-B3C7D2" },
+  { alias: "C2-NODE-003", asn: "AS-VPS-ASIA", geo: "SG", status: "BLOCKED", protocol: "WebSocket", ja3: "JA3-4E11F9" },
+  { alias: "C2-NODE-004", asn: "AS-EURO-HOST", geo: "NL", status: "ACTIVE", protocol: "HTTPS", ja4: "JA4-77A0C5" },
+];
+
+// ==================== CLOCK ====================
 function updateClock() { document.getElementById('clock').textContent = new Date().toLocaleString('th-TH'); }
 setInterval(updateClock, 1000); updateClock();
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Chart 1: IOC Distribution (แก้จาก doughnut เป็น distribution ตาม category)
-    new Chart(document.getElementById('chart1'), {
-        type: 'doughnut',
-        data: {
-            labels: ['IP Addresses (45%)', 'File Hashes (25%)', 'Domains (20%)', 'URLs (10%)'],
-            datasets: [{
-                data: [45, 25, 20, 10],
-                backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444', '#10b981'],
-                borderColor: '#0a0e17',
-                borderWidth: 3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: '#94a3b8',
-                        font: {size: 11, family: 'monospace'},
-                        padding: 10
-                    }
-                },
-                title: {
-                    display: true,
-                    text: 'IOC Categories',
-                    color: '#94a3b8',
-                    font: {size: 12}
-                }
-            }
-        }
-    });
+// ==================== APT GRID ====================
+function renderAPTGrid() {
+  const grid = document.getElementById('aptGrid');
+  grid.innerHTML = APT_DATA.map(a => `
+    <div class="apt-card">
+      <h4>${a.alias}</h4>
+      <div class="ttp">MITRE: ${a.ttps.join(', ')}</div>
+      <div class="sector">Sector: ${a.sector}</div>
+      <div class="sector">Region: ${a.region}</div>
+      <div class="confidence-${a.confidence.toLowerCase()}">Confidence: ${a.confidence}</div>
+    </div>
+  `).join('');
+}
 
-    // Chart 2: C2 Tracking (แก้ Legend + X-Axis font)
-    new Chart(document.getElementById('chart2'), {
-        type: 'bar',
-        data: {
-            labels: ['Primary C2', 'Backup C2', 'Active Beacon'],
-            datasets: [{
-                label: 'Blocked / Tracked',
-                data: [2, 1, 3],
-                backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6'],
-                borderColor: '#0a0e17',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: {
-                        color: '#94a3b8',
-                        font: {size: 12, family: 'monospace', weight: 'bold'},
-                        boxWidth: 15,
-                        boxHeight: 15
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    ticks: {
-                        color: '#e2e8f0',
-                        font: {size: 12, family: 'monospace', weight: 'bold'}
-                    },
-                    grid: {color: '#1e293b'}
-                },
-                y: {
-                    ticks: {
-                        color: '#94a3b8',
-                        font: {size: 11}
-                    },
-                    grid: {color: '#1e293b'},
-                    beginAtZero: true
-                }
-            }
-        }
-    });
+// ==================== CHARTS ====================
+document.addEventListener('DOMContentLoaded', function() {
+  renderAPTGrid();
+
+  // Chart 1: IOC by Confidence
+  new Chart(document.getElementById('chart1'), {
+    type: 'doughnut',
+    data: {
+      labels: ['HIGH (45%)', 'MEDIUM (30%)', 'LOW (25%)'],
+      datasets: [{ data: [45, 30, 25], backgroundColor: ['#ef4444', '#f59e0b', '#94a3b8'], borderColor: '#0a0e17', borderWidth: 3 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: {size: 11} } } } }
+  });
+
+  // Chart 2: C2 by ASN
+  const asnCounts = {};
+  C2_DATA.forEach(c => { asnCounts[c.asn] = (asnCounts[c.asn] || 0) + 1; });
+  new Chart(document.getElementById('chart2'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(asnCounts),
+      datasets: [{ label: 'C2 Nodes', data: Object.values(asnCounts), backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981'], borderColor: '#0a0e17', borderWidth: 2 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: '#94a3b8', font: {size: 12} } } }, scales: { x: { ticks: { color: '#e2e8f0' } }, y: { ticks: { color: '#94a3b8' }, beginAtZero: true } } }
+  });
+
+  // Chart 3: Malware Family
+  new Chart(document.getElementById('chart3'), {
+    type: 'radar',
+    data: {
+      labels: ['AMOS', 'RemcosRAT', 'AgentTesla', 'Formbook', 'XMRig', 'CobaltStrike'],
+      datasets: [{ label: 'IOCs', data: [12, 8, 6, 5, 4, 3], backgroundColor: 'rgba(239, 68, 68, 0.3)', borderColor: '#ef4444' }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: '#94a3b8' } } } }
+  });
+
+  // Chart 4: C2 Status & Protocol
+  const statusCounts = {};
+  C2_DATA.forEach(c => { statusCounts[c.status] = (statusCounts[c.status] || 0) + 1; });
+  new Chart(document.getElementById('chart4'), {
+    type: 'pie',
+    data: {
+      labels: Object.keys(statusCounts),
+      datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6'] }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: {size: 11} } } } }
+  });
 });
 
-// Terminal Log (ใส่กรอบ + scrolling)
+// ==================== TERMINAL LOG ====================
 const logs = [
-    'ALERT: C2-PRIMARY blocked at kernel level',
-    'INFO: 782K+ IOC loaded to memory',
-    'ALERT: APT36 C2 detected - auto-blocked',
-    'INFO: Threat intel updated from MISP',
-    'ALERT: Wizard Spider probe blocked',
-    'INFO: Honeypot touched - evidence captured',
-    'ALERT: DAIXIN Team C2 neutralized',
-    'INFO: CSA playbook executed',
-    'ALERT: Emotet IP blackholed',
-    'INFO: Zero-day signature updated',
+  '[AUTOBAN_APPLIED] [ASN:AS-QUADRA-USA] [C2-NODE-001] [TTP:T1059]',
+  '[MISP_SYNCED] [742K+ IOCs] [Source:MISP-TH]',
+  '[TAKEDOWN_NOTIFIED] [Provider:AWS Global] [C2-NODE-002]',
+  '[CSA_PLAYBOOK_EXECUTED] [CCM-v4.1]',
+  '[AUTOBAN_APPLIED] [ASN:AS-VPS-ASIA] [C2-NODE-003] [TTP:T1133]',
+  '[ZERO-DAY_SIG_UPDATED] [SIG:HTTP-HEADER-INJECT]',
+  '[AUTOBAN_APPLIED] [ASN:AS-EURO-HOST] [C2-NODE-004] [TTP:T1071]',
+  '[MISP_SYNCED] [APT-GROUP-ALPHA] [Sector:Government]',
 ];
 let logIndex = 0;
 setInterval(() => {
-    const terminal = document.getElementById('terminal');
-    const d = document.createElement('div');
-    d.className = logs[logIndex].includes('ALERT') ? 'alert' : 'log';
-    d.textContent = '$ ' + logs[logIndex];
-    terminal.appendChild(d);
-    terminal.scrollTop = terminal.scrollHeight;
-    logIndex = (logIndex + 1) % logs.length;
-    if (terminal.children.length > 15) terminal.removeChild(terminal.firstChild);
+  const terminal = document.getElementById('terminal');
+  const d = document.createElement('div');
+  d.className = logs[logIndex].includes('AUTOBAN') || logs[logIndex].includes('TAKEDOWN') ? 'alert' : 'log';
+  d.textContent = '$ ' + logs[logIndex];
+  terminal.appendChild(d);
+  terminal.scrollTop = terminal.scrollHeight;
+  logIndex = (logIndex + 1) % logs.length;
+  if (terminal.children.length > 15) terminal.removeChild(terminal.firstChild);
 }, 2500);
 </script>
 </body>
