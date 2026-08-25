@@ -44,14 +44,19 @@ canvas{width:100%!important;height:300px!important}
 </div>
 
 <div class="stats-grid">
-<div class="card"><div class="value">742K</div><div class="label">SANITIZED IOC</div></div>
-<div class="card"><div class="value">13</div><div class="label">APT GROUPS</div></div>
-<div class="card"><div class="value">5</div><div class="label">ZERO-DAYS</div></div>
+<div class="card"><div class="value">782K+</div><div class="label">TOTAL IOC</div></div>
+<div class="card"><div class="value">71</div><div class="label">APT GROUPS</div></div>
+<div class="card"><div class="value">485</div><div class="label">THREAT RELATIONS</div></div>
 <div class="card"><div class="value">6</div><div class="label">AUTO-BANS</div></div>
 </div>
 
 <!-- APT Groups with MITRE ATT&CK -->
 <div class="apt-grid" id="aptGrid"></div>
+
+<div class="defense-core">
+  <h3>🛡️ OMEGA DEFENSE CORE</h3>
+  <div id="defenseStats">Loading...</div>
+</div>
 
 <div class="chart-box">
 <div class="chart-card">
@@ -62,6 +67,11 @@ canvas{width:100%!important;height:300px!important}
 <h3>🎯 C2 INFRASTRUCTURE BY ASN</h3>
 <canvas id="chart2"></canvas>
 </div>
+</div>
+
+<div class="defense-core">
+  <h3>🛡️ OMEGA DEFENSE CORE</h3>
+  <div id="defenseStats">Loading...</div>
 </div>
 
 <div class="chart-box">
@@ -111,13 +121,7 @@ const OPSEC = {
 };
 
 // ==================== DATA ====================
-const APT_DATA = [
-  { alias: "APT-GROUP-ALPHA", ttps: ["T1059", "T1566"], sector: "Government", region: "TH", confidence: "HIGH" },
-  { alias: "APT-GROUP-BETA", ttps: ["T1190", "T1133"], sector: "Finance", region: "TH", confidence: "HIGH" },
-  { alias: "APT-GROUP-GAMMA", ttps: ["T1566", "T1204"], sector: "Critical Infrastructure", region: "ASEAN", confidence: "MEDIUM" },
-  { alias: "APT-GROUP-DELTA", ttps: ["T1027", "T1140"], sector: "Telecom", region: "APAC", confidence: "MEDIUM" },
-  { alias: "APT-GROUP-EPSILON", ttps: ["T1071", "T1573"], sector: "Energy", region: "Global", confidence: "LOW" },
-];
+// รอข้อมูลจริงจาก RealDataLoader
 
 const C2_DATA = [
   { alias: "C2-NODE-001", asn: "AS-QUADRA-USA", geo: "DE", status: "TAKEDOWN", protocol: "HTTPS", ja3: "JA3-8F92A1" },
@@ -202,7 +206,7 @@ const logs = [
   '[AUTOBAN_APPLIED] [ASN:AS-VPS-ASIA] [C2-NODE-003] [TTP:T1133]',
   '[ZERO-DAY_SIG_UPDATED] [SIG:HTTP-HEADER-INJECT]',
   '[AUTOBAN_APPLIED] [ASN:AS-EURO-HOST] [C2-NODE-004] [TTP:T1071]',
-  '[MISP_SYNCED] [APT-GROUP-ALPHA] [Sector:Government]',
+  
 ];
 let logIndex = 0;
 setInterval(() => {
@@ -216,5 +220,56 @@ setInterval(() => {
   if (terminal.children.length > 15) terminal.removeChild(terminal.firstChild);
 }, 2500);
 </script>
+
+<script>
+setInterval(() => {
+  fetch('http://localhost:8089/omega/defense/status')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('defenseStats').innerHTML = 
+        `Modules: ${data.modules_active} | Threats: ${data.threats_detected} | Bans: ${data.auto_bans} | Evidence: ${data.evidence_count}`;
+    })
+    .catch(() => {
+      document.getElementById('defenseStats').innerHTML = 'Defence Core offline';
+    });
+}, 5000);
+</script>
+
+
+<script>
+setInterval(() => {
+  fetch('http://localhost:8089/omega/defense/status')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('defenseStatus').innerHTML = 
+        'Status: ' + data.status + ' | Modules: ' + data.modules + ' | Evidence: ' + data.evidence_count + ' | IOC: ' + data.ioc_database;
+    })
+    .catch(() => {
+      document.getElementById('defenseStatus').innerHTML = 'Defence Core offline';
+    });
+}, 5000);
+</script>
+
+
+<script>
+fetch('http://localhost:8090/omega/real/stats')
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('totalIOC').textContent = data.total_ioc;
+    document.getElementById('aptGroups').textContent = data.apt_groups;
+    document.getElementById('threatRelations').textContent = data.threat_relations;
+  })
+  .catch(() => {});
+</script>
+
 </body>
 </html>
+<script>
+// ดึงข้อมูลจาก Defence Core API (8089)
+fetch('http://localhost:8089/omega/defense/status')
+  .then(r => r.json())
+  .then(data => {
+    console.log('Defence Core:', data);
+  })
+  .catch(() => {});
+</script>
