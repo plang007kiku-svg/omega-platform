@@ -199,13 +199,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ==================== TERMINAL LOG ====================
 const logs = [
-  '[AUTOBAN_APPLIED] [ASN:AS-QUADRA-USA] [C2-NODE-001] [TTP:T1059]',
-  '[MISP_SYNCED] [742K+ IOCs] [Source:MISP-TH]',
-  '[TAKEDOWN_NOTIFIED] [Provider:AWS Global] [C2-NODE-002]',
+  ''
+  ''
+  ''
   '[CSA_PLAYBOOK_EXECUTED] [CCM-v4.1]',
-  '[AUTOBAN_APPLIED] [ASN:AS-VPS-ASIA] [C2-NODE-003] [TTP:T1133]',
-  '[ZERO-DAY_SIG_UPDATED] [SIG:HTTP-HEADER-INJECT]',
-  '[AUTOBAN_APPLIED] [ASN:AS-EURO-HOST] [C2-NODE-004] [TTP:T1071]',
+  ''
+  ''
+  ''
   
 ];
 let logIndex = 0;
@@ -227,7 +227,7 @@ setInterval(() => {
     .then(r => r.json())
     .then(data => {
       document.getElementById('defenseStats').innerHTML = 
-        `Modules: ${data.modules_active} | Threats: ${data.threats_detected} | Bans: ${data.auto_bans} | Evidence: ${data.evidence_count}`;
+        `Status: ${data.status} | Modules: ${data.modules} | Evidence: ${data.evidence_count} | IOC: ${data.ioc_database}`;
     })
     .catch(() => {
       document.getElementById('defenseStats').innerHTML = 'Defence Core offline';
