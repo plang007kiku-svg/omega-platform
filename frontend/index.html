@@ -236,31 +236,10 @@ setInterval(() => {
 </script>
 
 
-<script>
-setInterval(() => {
-  fetch('http://localhost:8089/omega/defense/status')
-    .then(r => r.json())
-    .then(data => {
-      document.getElementById('defenseStatus').innerHTML = 
-        'Status: ' + data.status + ' | Modules: ' + data.modules + ' | Evidence: ' + data.evidence_count + ' | IOC: ' + data.ioc_database;
-    })
-    .catch(() => {
-      document.getElementById('defenseStatus').innerHTML = 'Defence Core offline';
-    });
-}, 5000);
-</script>
 
 
-<script>
-fetch('http://localhost:8090/omega/real/stats')
-  .then(r => r.json())
-  .then(data => {
-    document.getElementById('totalIOC').textContent = data.total_ioc;
-    document.getElementById('aptGroups').textContent = data.apt_groups;
-    document.getElementById('threatRelations').textContent = data.threat_relations;
-  })
-  .catch(() => {});
-</script>
+
+
 
 </body>
 </html>
